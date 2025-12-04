@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Search, Loader2, X, MoveRight } from "lucide-react";
 
-// Tipe data (sesuai output Backend Neo4j kamu)
+import { useState, useEffect, Suspense } from "react";
+import { Loader2, MoveRight } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+// Tipe data
 interface SearchResult {
-  id: number;
+  id: number | string;
   type: string;
   label: string;
   score: number;
@@ -14,28 +16,32 @@ interface SearchResult {
     bio?: string;
     nationality?: string;
     title?: string;
-    genre?: string;
     years?: string;
   };
 }
 
-export default function Home() {
-  const [query, setQuery] = useState("");
+// 1. KITA PISAHKAN LOGIKA UTAMA KE COMPONENT 'SEARCHCONTENT'
+// Supaya bisa dibungkus Suspense (wajib di Next.js saat pakai useSearchParams)
+function SearchContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // State query diisi awal dari URL jika ada
+  const [query, setQuery] = useState(searchParams.get("q") || "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Efek transisi halus saat loading
-  const handleSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!query.trim()) return;
+  // 2. FUNGSI FETCH DATA (DIPISAH SUPAYA BISA DIPANGGIL USEEFFECT)
+  const performSearch = async (searchTerm: string) => {
+    if (!searchTerm.trim()) return;
 
     setLoading(true);
     setHasSearched(true);
-    setResults([]); 
+    setResults([]);
 
     try {
-      const res = await fetch(`http://localhost:8000/search?q=${query}`);
+      const res = await fetch(`http://localhost:8000/search?q=${searchTerm}`);
       const data = await res.json();
       setResults(data.results || []);
     } catch (error) {
@@ -45,13 +51,35 @@ export default function Home() {
     }
   };
 
+  // 3. USE EFFECT: DENGAR PERUBAHAN URL
+  // Setiap kali URL berubah (?q=...), otomatis jalankan search
+  useEffect(() => {
+    const urlQuery = searchParams.get("q");
+    if (urlQuery) {
+      setQuery(urlQuery); // Sinkronkan input box dengan URL (penting buat Back button)
+      performSearch(urlQuery);
+    } else {
+      // Kalau URL kosong (balik ke home), reset state
+      setHasSearched(false);
+      setResults([]);
+      setQuery("");
+    }
+  }, [searchParams]);
+
+  // 4. HANDLE SUBMIT: CUKUP GANTI URL
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) {
+      // Ini akan memicu useEffect di atas
+      router.push(`/?q=${encodeURIComponent(query)}`);
+    }
+  };
+
   return (
-    <main className="min-h-screen flex flex-col items-center px-6 py-12 md:py-20 bg-stone-50 text-stone-900">
-      
+    <div className="flex flex-col items-center w-full">
       {/* --- HERO SECTION --- */}
       <div className={`transition-all duration-700 ease-in-out flex flex-col items-center w-full max-w-4xl ${hasSearched ? "mt-0 mb-12" : "mt-[25vh]"}`}>
         
-        {/* Brand Name */}
         <h1 className="font-serif text-6xl md:text-8xl font-medium tracking-tighter mb-2 text-stone-900">
           Curator<span className="text-stone-400">.</span>
         </h1>
@@ -60,7 +88,7 @@ export default function Home() {
           "Every canvas is a journey through time."
         </p>
 
-        {/* Minimalist Search Bar */}
+        {/* Search Bar */}
         <form onSubmit={handleSearch} className="relative w-full max-w-xl group">
           <input
             type="text"
@@ -78,13 +106,13 @@ export default function Home() {
           </button>
         </form>
 
-        {/* Tags rekomendasi (Hanya muncul sebelum search) */}
+        {/* Tags (Update URL saat diklik) */}
         {!hasSearched && (
            <div className="mt-6 flex gap-3 text-sm text-stone-400 font-sans">
              <span>Try:</span>
-             <button onClick={() => {setQuery("Monet");}} className="hover:text-stone-800 hover:underline">Monet</button>
-             <button onClick={() => {setQuery("Portrait");}} className="hover:text-stone-800 hover:underline">Portrait</button>
-             <button onClick={() => {setQuery("Renaissance");}} className="hover:text-stone-800 hover:underline">Renaissance</button>
+             <button onClick={() => router.push("/?q=Monet")} className="hover:text-stone-800 hover:underline">Monet</button>
+             <button onClick={() => router.push("/?q=Portrait")} className="hover:text-stone-800 hover:underline">Portrait</button>
+             <button onClick={() => router.push("/?q=Renaissance")} className="hover:text-stone-800 hover:underline">Renaissance</button>
            </div>
         )}
       </div>
@@ -92,7 +120,6 @@ export default function Home() {
       {/* --- GALLERY GRID --- */}
       <div className="w-full max-w-[1600px] animate-in fade-in slide-in-from-bottom-10 duration-1000">
         
-        {/* No Results Message */}
         {hasSearched && !loading && results.length === 0 && (
           <div className="text-center py-20 border-t border-stone-200">
             <p className="font-serif text-3xl text-stone-300 italic">No artifacts found.</p>
@@ -100,14 +127,13 @@ export default function Home() {
           </div>
         )}
 
-        {/* Masonry Layout */}
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-8 space-y-8">
           {results.map((item, index) => (
             <div 
               key={`${item.id}-${index}`} 
-              className="break-inside-avoid bg-white p-4 shadow-sm hover:shadow-xl transition-all duration-500 cursor-pointer group border border-stone-100"
+              onClick={() => router.push(`/${item.type.toLowerCase()}/${encodeURIComponent(item.id.toString())}`)}
+              className="break-inside-avoid bg-white p-5 rounded-sm shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 border border-[#E5E0D8] group cursor-pointer"
             >
-              {/* IMAGE (Khusus Artwork) */}
               {item.type === "Artwork" && item.details.url && (
                 <div className="relative overflow-hidden bg-stone-100 mb-4 aspect-auto">
                    <img 
@@ -115,31 +141,21 @@ export default function Home() {
                       alt={item.label}
                       className="w-full h-auto object-cover filter sepia-[0.2] group-hover:sepia-0 transition-all duration-700"
                       loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                    />
                 </div>
               )}
 
-              {/* CARD INFO */}
               <div className="flex flex-col gap-1">
-                {/* Type Label (Kecil di atas) */}
                 <span className="text-[10px] uppercase tracking-[0.2em] text-stone-400 font-sans">
-                  {item.type === 'Artist' ? 'Artist Profile' : 'Masterpiece'}
+                  {item.type === 'Artist' ? 'Artist Profile' : 'Artwork'}
                 </span>
-
-                {/* Judul Utama */}
                 <h3 className="font-serif text-xl font-medium text-stone-900 leading-tight group-hover:underline decoration-1 underline-offset-4">
                   {item.label}
                 </h3>
-
-                {/* Subtitle (Nama Artis atau Kebangsaan) */}
                 <p className="font-cormorant text-lg text-stone-500 italic">
                    {item.type === "Artwork" ? item.details.artist_name_raw : item.details.nationality}
                 </p>
-
-                {/* Artist Bio Snippet */}
                 {item.type === "Artist" && item.details.bio && (
                   <p className="mt-4 text-xs font-sans text-stone-500 leading-relaxed line-clamp-4 border-l border-stone-300 pl-3">
                     {item.details.bio}
@@ -150,6 +166,18 @@ export default function Home() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// 5. MAIN EXPORT: BUNGKUS DENGAN SUSPENSE
+// Ini wajib di Next.js App Router kalau pakai useSearchParams
+export default function Home() {
+  return (
+    <main className="min-h-screen flex flex-col items-center px-6 py-12 md:py-20 bg-stone-50 text-stone-900">
+      <Suspense fallback={<div className="text-center pt-20">Loading Curator...</div>}>
+        <SearchContent />
+      </Suspense>
     </main>
   );
 }
