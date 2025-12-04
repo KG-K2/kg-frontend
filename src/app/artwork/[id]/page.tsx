@@ -1,19 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, MapPin, User } from "lucide-react";
+import { ArrowLeft, Loader2, User, Ruler, Calendar, Paintbrush, MapPin } from "lucide-react";
 
-// Sesuaikan interface dengan response backend baru
 interface ArtworkPageResponse {
   artwork: {
     id: number;
     title: string;
     url: string;
+    year: string;
+    medium: string;
+    dimensions: string;
     location: string;
-    form: string;
   };
   artist: {
-    id: string; // ID Artist sekarang String (Namanya)
+    id: string; 
     name: string;
     nationality: string;
     bio: string;
@@ -67,23 +68,38 @@ export default function ArtworkPage() {
       <div className="w-full lg:w-2/5 p-10 lg:p-16 flex flex-col justify-center bg-[#F2F0E9] overflow-y-auto h-screen">
         <div className="mb-8">
             <span className="text-[#C6A87C] tracking-[0.2em] text-xs font-bold uppercase mb-2 block">
-                {data.artwork.form}
+                {data.artwork.medium}
             </span>
             <h1 className="font-serif text-5xl md:text-6xl font-bold mb-6 text-[#2A2826] leading-tight">
                 {data.artwork.title}
             </h1>
-            <div className="flex items-center gap-2 text-stone-500 mb-6">
-                <MapPin className="w-4 h-4" />
-                <span className="italic">{data.artwork.location}</span>
+
+            {/* NEW: SPECIFICATIONS LIST */}
+            <div className="space-y-4 border-t border-[#C6A87C]/30 pt-6">
+                <div className="flex items-center gap-3 text-stone-600">
+                    <Calendar className="w-5 h-5 text-[#C6A87C]" />
+                    <span className="font-serif text-lg">{data.artwork.year}</span>
+                </div>
+                <div className="flex items-center gap-3 text-stone-600">
+                    <Paintbrush className="w-5 h-5 text-[#C6A87C]" />
+                    <span className="font-serif text-lg capitalize">{data.artwork.medium}</span>
+                </div>
+                <div className="flex items-center gap-3 text-stone-600">
+                    <Ruler className="w-5 h-5 text-[#C6A87C]" />
+                    <span className="font-serif text-lg">{data.artwork.dimensions}</span>
+                </div>
+                <div className="flex items-center gap-3 text-stone-600">
+                    <MapPin className="w-5 h-5 text-[#C6A87C]" />
+                    <span className="font-serif text-lg italic">{data.artwork.location}</span>
+                </div>
             </div>
         </div>
 
         {/* ARTIST CARD */}
         {data.artist && (
             <div 
-                // FIX: Gunakan encodeURIComponent untuk nama artist
                 onClick={() => router.push(`/artist/${encodeURIComponent(data.artist!.name)}`)}
-                className="group border-t border-b border-[#C6A87C]/30 py-8 cursor-pointer hover:bg-white/50 transition-colors -mx-4 px-4 rounded-lg"
+                className="group border-t border-b border-[#C6A87C]/30 py-8 cursor-pointer hover:bg-white/50 transition-colors -mx-4 px-4 rounded-lg mt-8"
             >
                 <div className="flex items-center gap-2 text-stone-400 mb-2 text-sm uppercase tracking-wider">
                     <User className="w-4 h-4" /> Created By
