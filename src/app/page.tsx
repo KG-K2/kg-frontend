@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { Loader2, MoveRight } from "lucide-react";
+import { Loader2, MoveRight, Database } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 // Tipe data
 interface SearchResult {
@@ -20,19 +21,15 @@ interface SearchResult {
   };
 }
 
-// 1. KITA PISAHKAN LOGIKA UTAMA KE COMPONENT 'SEARCHCONTENT'
-// Supaya bisa dibungkus Suspense (wajib di Next.js saat pakai useSearchParams)
 function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // State query diisi awal dari URL jika ada
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // 2. FUNGSI FETCH DATA (DIPISAH SUPAYA BISA DIPANGGIL USEEFFECT)
   const performSearch = async (searchTerm: string) => {
     if (!searchTerm.trim()) return;
 
@@ -51,32 +48,40 @@ function SearchContent() {
     }
   };
 
-  // 3. USE EFFECT: DENGAR PERUBAHAN URL
-  // Setiap kali URL berubah (?q=...), otomatis jalankan search
   useEffect(() => {
     const urlQuery = searchParams.get("q");
     if (urlQuery) {
-      setQuery(urlQuery); // Sinkronkan input box dengan URL (penting buat Back button)
+      setQuery(urlQuery); 
       performSearch(urlQuery);
     } else {
-      // Kalau URL kosong (balik ke home), reset state
       setHasSearched(false);
       setResults([]);
       setQuery("");
     }
   }, [searchParams]);
 
-  // 4. HANDLE SUBMIT: CUKUP GANTI URL
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      // Ini akan memicu useEffect di atas
       router.push(`/?q=${encodeURIComponent(query)}`);
     }
   };
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-center w-full relative">
+      
+      {/* --- ADMIN LINK (Top Right) --- */}
+      <div className="absolute top-0 right-0 w-full flex justify-end">
+        <Link 
+          href="/run-cypher" 
+          className="flex items-center gap-2 text-stone-400 hover:text-stone-800 transition-colors opacity-60 hover:opacity-100 p-2"
+          title="Run Custom Cypher Queries"
+        >
+          <span className="text-[10px] font-sans uppercase tracking-widest hidden sm:block">Console</span>
+          <Database className="w-4 h-4" />
+        </Link>
+      </div>
+
       {/* --- HERO SECTION --- */}
       <div className={`transition-all duration-700 ease-in-out flex flex-col items-center w-full max-w-4xl ${hasSearched ? "mt-0 mb-12" : "mt-[25vh]"}`}>
         
@@ -106,7 +111,7 @@ function SearchContent() {
           </button>
         </form>
 
-        {/* Tags (Update URL saat diklik) */}
+        {/* Tags */}
         {!hasSearched && (
            <div className="mt-6 flex gap-3 text-sm text-stone-400 font-sans">
              <span>Try:</span>
@@ -170,8 +175,6 @@ function SearchContent() {
   );
 }
 
-// 5. MAIN EXPORT: BUNGKUS DENGAN SUSPENSE
-// Ini wajib di Next.js App Router kalau pakai useSearchParams
 export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center px-6 py-12 md:py-20 bg-stone-50 text-stone-900">
